@@ -286,7 +286,7 @@ function ScoreCounter({target}) {
 // ─── LEAD CAPTURE ─────────────────────────────────────────────────────────────
 // STEP 1: Paste your Google Apps Script Web App URL below.
 // How: Extensions -> Apps Script -> Deploy -> Web app -> Execute as: Me -> Anyone -> Copy URL
-var GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwnI34jlGIDCH38iY51cpx9rk8CgOzIwvrIUl123ZUCUzD1o9K38a4arT4ZKIH4JvaTwA/exec";
+var GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbymtBDowtk3OAbJhEE8OOavIZKp0R058TMtPeZds-S-rdZ_rQXXXb0ePuVXLjumcxS2/exec";
 
 function LeadModal({onClose}) {
   var [firstName, setFirstName] = useState("");
