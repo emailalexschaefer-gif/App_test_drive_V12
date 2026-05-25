@@ -282,11 +282,174 @@ function ScoreCounter({target}) {
   return <>{count}</>;
 }
 
+
+// ─── LEAD CAPTURE ─────────────────────────────────────────────────────────────
+// STEP 1: Paste your Google Apps Script Web App URL below.
+// How: Extensions -> Apps Script -> Deploy -> Web app -> Execute as: Me -> Anyone -> Copy URL
+var GOOGLE_SCRIPT_URL = "PASTE_GOOGLE_SCRIPT_URL_HERE";
+
+function LeadModal({onClose}) {
+  var [firstName, setFirstName] = useState("");
+  var [email, setEmail] = useState("");
+  var [role, setRole] = useState("");
+  var [tripsPerYear, setTripsPerYear] = useState("");
+  var [groupSize, setGroupSize] = useState("");
+  var [nextTrip, setNextTrip] = useState("");
+  var [showOpt, setShowOpt] = useState(false);
+  var [errors, setErrors] = useState({});
+  var [loading, setLoading] = useState(false);
+  var [success, setSuccess] = useState(false);
+  var [submitErr, setSubmitErr] = useState("");
+
+  useEffect(function() {
+    document.body.style.overflow = "hidden";
+    trackEvent("lead_form_opened");
+    return function() { document.body.style.overflow = ""; };
+  }, []);
+
+  function validate() {
+    var e = {};
+    if (!firstName.trim()) e.firstName = "Required";
+    if (!email.trim()) e.email = "Required";
+    else if (!/^[^@]+@[^@]+\.[^@]+$/.test(email)) e.email = "Enter a valid email";
+    if (!role) e.role = "Select your role";
+    return e;
+  }
+
+  function pickRole(val) {
+    if (val === role) return;
+    setRole(val);
+    if (val === "Player") trackEvent("player_selected");
+    else if (val === "Organiser") trackEvent("organiser_selected");
+    else if (val === "Both") { trackEvent("player_selected"); trackEvent("organiser_selected"); }
+  }
+
+  async function handleSubmit(ev) {
+    ev.stopPropagation();
+    var errs = validate();
+    if (Object.keys(errs).length > 0) { setErrors(errs); return; }
+    setLoading(true); setErrors({}); setSubmitErr("");
+    try {
+      await fetch(GOOGLE_SCRIPT_URL, {
+        method: "POST",
+        mode: "no-cors",
+        headers: { "Content-Type": "text/plain;charset=utf-8" },
+        body: JSON.stringify({
+          firstName: firstName || "",
+          email: email || "",
+          role: role || "",
+          tripsPerYear: tripsPerYear || "",
+          groupSize: groupSize || "",
+          nextTrip: nextTrip || "",
+          createdAt: new Date().toISOString()
+        })
+      });
+      trackEvent("lead_form_submitted", { role: role, tripsPerYear: tripsPerYear, groupSize: groupSize });
+      setSuccess(true);
+      setTimeout(function() { onClose(); }, 2200);
+    } catch(err) {
+      setSubmitErr("Something went wrong. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  var inp = { width:"100%", padding:"10px 13px", background:"rgba(255,255,255,.07)", border:"1px solid rgba(201,168,76,.28)", borderRadius:9, color:"rgba(245,230,184,.92)", fontSize:14, outline:"none", boxSizing:"border-box" };
+  var lbl = { ...T.body, fontSize:11.5, color:"rgba(201,168,76,.72)", fontWeight:700, letterSpacing:.4, marginBottom:4, display:"block" };
+  var errStyle = { ...T.body, fontSize:11, color:"#f87171", marginTop:3 };
+  var sel = { ...inp, appearance:"none", WebkitAppearance:"none", cursor:"pointer" };
+
+  return (
+    <div onClick={function(e){e.stopPropagation();}} style={{position:"fixed",inset:0,zIndex:200,display:"flex",alignItems:"flex-end",justifyContent:"center"}}>
+      <div onClick={onClose} style={{position:"absolute",inset:0,background:"rgba(0,0,0,.74)"}}/>
+      <div style={{position:"relative",zIndex:1,background:"rgba(6,22,12,.98)",border:"1px solid rgba(201,168,76,.3)",borderRadius:"18px 18px 0 0",padding:"22px 20px 28px",width:"100%",maxWidth:440,maxHeight:"92vh",overflowY:"auto",boxShadow:"0 -8px 40px rgba(0,0,0,.65)"}}>
+        <button onClick={onClose} style={{position:"absolute",top:14,right:16,background:"none",border:"none",color:"rgba(245,230,184,.45)",fontSize:20,cursor:"pointer",lineHeight:1,padding:4,fontWeight:700}}>x</button>
+
+        {success ? (
+          <div style={{textAlign:"center",padding:"28px 0"}}>
+            <div style={{fontSize:36,marginBottom:10}}>⛳</div>
+            <div style={{...T.display,color:"rgba(201,168,76,.9)",fontSize:18,fontWeight:800,marginBottom:8}}>You are in.</div>
+            <div style={{...T.body,color:"rgba(245,230,184,.72)",fontSize:13.5,lineHeight:1.7}}>Thanks -- we will keep you updated as Teein It Up launches.</div>
+          </div>
+        ) : (
+          <div>
+            <div style={{...T.display,color:"rgba(201,168,76,.9)",fontSize:18,fontWeight:900,marginBottom:5,paddingRight:28}}>Join Early Access</div>
+            <div style={{...T.body,color:"rgba(245,230,184,.5)",fontSize:12.5,lineHeight:1.6,marginBottom:18}}>Don't miss out on securing your early access spot.</div>
+
+            <div style={{marginBottom:13}}>
+              <label style={lbl}>First Name</label>
+              <input value={firstName} onChange={function(e){setFirstName(e.target.value);}} placeholder="Your first name" style={inp}/>
+              {errors.firstName && <div style={errStyle}>{errors.firstName}</div>}
+            </div>
+
+            <div style={{marginBottom:13}}>
+              <label style={lbl}>Email Address</label>
+              <input type="email" value={email} onChange={function(e){setEmail(e.target.value);}} placeholder="you@example.com" style={inp}/>
+              {errors.email && <div style={errStyle}>{errors.email}</div>}
+            </div>
+
+            <div style={{marginBottom:18}}>
+              <label style={lbl}>I am:</label>
+              <div style={{display:"flex",gap:8}}>
+                {["Player","Organiser","Both"].map(function(v){return(
+                  <button key={v} onClick={function(){pickRole(v);}} style={{flex:1,padding:"10px 0",background:role===v?"rgba(201,168,76,.22)":"rgba(255,255,255,.05)",border:"1px solid "+(role===v?"rgba(201,168,76,.6)":"rgba(255,255,255,.14)"),borderRadius:9,...T.body,fontSize:13,fontWeight:role===v?700:500,color:role===v?"rgba(201,168,76,.95)":"rgba(245,230,184,.7)",cursor:"pointer"}}>{v}</button>
+                );})}
+              </div>
+              {errors.role && <div style={errStyle}>{errors.role}</div>}
+            </div>
+
+            <div style={{marginBottom:18,border:"1px solid rgba(201,168,76,.16)",borderRadius:10,overflow:"hidden"}}>
+              <div onClick={function(){setShowOpt(function(v){return !v;});}} style={{padding:"10px 14px",display:"flex",alignItems:"center",justifyContent:"space-between",cursor:"pointer",background:"rgba(255,255,255,.03)"}}>
+                <span style={{...T.body,fontSize:12.5,color:"rgba(201,168,76,.58)",fontWeight:600}}>Optional trip details</span>
+                <span style={{fontSize:11,color:"rgba(201,168,76,.45)",transform:showOpt?"rotate(180deg)":"rotate(0deg)",transition:"transform .2s"}}>▼</span>
+              </div>
+              {showOpt && (
+                <div style={{padding:"14px 14px 8px",borderTop:"1px solid rgba(201,168,76,.1)"}}>
+                  <div style={{marginBottom:12}}>
+                    <label style={lbl}>Golf Trips Per Year</label>
+                    <select value={tripsPerYear} onChange={function(e){setTripsPerYear(e.target.value);}} style={sel}>
+                      <option value="">Select...</option>
+                      <option value="1-2">1-2</option>
+                      <option value="3-5">3-5</option>
+                      <option value="6+">6+</option>
+                    </select>
+                  </div>
+                  <div style={{marginBottom:12}}>
+                    <label style={lbl}>Typical Group Size</label>
+                    <select value={groupSize} onChange={function(e){setGroupSize(e.target.value);}} style={sel}>
+                      <option value="">Select...</option>
+                      <option value="Under 8">Under 8</option>
+                      <option value="8-16">8-16</option>
+                      <option value="17-32">17-32</option>
+                      <option value="32+">32+</option>
+                    </select>
+                  </div>
+                  <div style={{marginBottom:6}}>
+                    <label style={lbl}>Next Trip <span style={{opacity:.4}}>(optional)</span></label>
+                    <input value={nextTrip} onChange={function(e){setNextTrip(e.target.value);}} placeholder="e.g. June, September, King Island 2026" style={inp}/>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {submitErr && <div style={{...T.body,fontSize:12,color:"#f87171",marginBottom:10,textAlign:"center"}}>{submitErr}</div>}
+            <button onClick={handleSubmit} disabled={loading} style={{width:"100%",padding:"14px 0",background:loading?"rgba(201,168,76,.35)":"linear-gradient(135deg,#b8892a 0%,#f0d060 45%,#c9952a 100%)",border:"none",borderRadius:12,...T.body,fontSize:15,fontWeight:900,color:C.greenDeep,cursor:loading?"not-allowed":"pointer",letterSpacing:.3,boxShadow:"0 4px 18px rgba(201,168,76,.38)",marginBottom:8}}>
+              {loading ? "Submitting..." : "Join Early Access →"}
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+
 // ─── WINNER OVERLAY ───────────────────────────────────────────────────────────
 function WinnerOverlay({winner,sideW,onClose,finalBoard}) {
   const [vis,setVis] = useState(false);
   const [shareToast,setShareToast] = useState(false);
   const [showSharePanel,setShowSharePanel] = useState(false);
+  const [showLeadModal,setShowLeadModal] = useState(false);
   function shareText(msg){doShare(msg,function(){setShareToast(true);setShowSharePanel(false);setTimeout(function(){setShareToast(false);},2800);});setShowSharePanel(false);}
   const MSG_DEMO="Here's the golf trip scoring app Teein It Up.\n\nLive leaderboards, side comps and final results all handled automatically without the admin chaos.\n\nTry the demo Test Drive here:\nhttps://app-test-drive-v12.vercel.app/";
   const MSG_GROUP="Here's the golf scoring app we'll be using for the trip.\n\nLive scoring, leaderboard updates, side comps and final results are all handled automatically.\n\nCheck out how it works before the trip:\n\nhttps://app-test-drive-v12.vercel.app/";
@@ -364,7 +527,7 @@ function WinnerOverlay({winner,sideW,onClose,finalBoard}) {
         <div style={{background:"rgba(6,22,12,.97)",border:"1px solid rgba(201,168,76,.32)",borderRadius:14,padding:"22px 18px 18px",marginBottom:20,opacity:vis?1:0,transition:"opacity .5s .65s",textAlign:"center",boxShadow:"0 6px 28px rgba(0,0,0,.55)"}}>
           <div style={{...T.display,color:C.goldLight,fontSize:22,fontWeight:900,lineHeight:1.15,marginBottom:10}}>Ready to Run Your Own Golf Trip Like a Pro?</div>
           <div style={{...T.body,color:"rgba(245,230,184,.5)",fontSize:12.5,lineHeight:1.7,marginBottom:18}}>No admin chaos. Just great golf.</div>
-          <button className="btn-press" onClick={(e)=>{e.stopPropagation();trackEvent("early_access_clicked");try{window.open("https://teein-it-up.myshopify.com/pages/contact","_blank","noopener");}catch(err){}}} style={{width:"100%",padding:"15px 0",background:"linear-gradient(135deg,#b8892a 0%,#f0d060 45%,#c9952a 100%)",border:"none",borderRadius:13,...T.body,fontSize:16,fontWeight:900,color:C.greenDeep,cursor:"pointer",letterSpacing:.3,boxShadow:"0 4px 18px rgba(201,168,76,.4)"}}>Join Early Access →</button>
+          <button className="btn-press" onClick={(e)=>{e.stopPropagation();trackEvent("early_access_clicked");setShowLeadModal(true);}} style={{width:"100%",padding:"15px 0",background:"linear-gradient(135deg,#b8892a 0%,#f0d060 45%,#c9952a 100%)",border:"none",borderRadius:13,...T.body,fontSize:16,fontWeight:900,color:C.greenDeep,cursor:"pointer",letterSpacing:.3,boxShadow:"0 4px 18px rgba(201,168,76,.4)"}}>Join Early Access →</button>
           <div style={{...T.body,textAlign:"center",color:"rgba(230,195,100,.82)",fontSize:12.5,fontWeight:700,marginTop:14,letterSpacing:.4}}>First 20 Founding Organisers receive free lifetime access</div>
         </div>
         {/* Share section */}
@@ -386,6 +549,8 @@ function WinnerOverlay({winner,sideW,onClose,finalBoard}) {
           </div>
         </div>
 
+        {/* Lead capture modal */}
+        {showLeadModal&&<LeadModal onClose={function(){setShowLeadModal(false);}}/>}
         {/* Share toast */}
         {shareToast&&(
           <div style={{position:"fixed",top:72,left:"50%",transform:"translateX(-50%)",zIndex:300,pointerEvents:"none",background:"rgba(10,30,18,.97)",border:"1px solid rgba(201,168,76,.55)",borderRadius:22,padding:"8px 18px",whiteSpace:"nowrap",animation:"toastSlide .3s ease-out",boxShadow:"0 4px 24px rgba(0,0,0,.7)"}}>
