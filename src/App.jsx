@@ -346,7 +346,7 @@ function LeadModal({onClose}) {
       });
       trackEvent("lead_form_submitted", { role: role, tripsPerYear: tripsPerYear, groupSize: groupSize });
       setSuccess(true);
-      setTimeout(function() { onClose(); }, 2200);
+      setTimeout(function() { onClose(); }, 5000);
     } catch(err) {
       setSubmitErr("Something went wrong. Please try again.");
     } finally {
@@ -453,7 +453,7 @@ function WinnerOverlay({winner,sideW,onClose,finalBoard}) {
   function shareText(msg){doShare(msg,function(){setShareToast(true);setShowSharePanel(false);setTimeout(function(){setShareToast(false);},2800);});setShowSharePanel(false);}
   const MSG_DEMO="Here's the golf trip scoring app Teein It Up.\n\nLive leaderboards, side comps and final results all handled automatically without the admin chaos.\n\nTry the demo Test Drive here:\nhttps://app-test-drive-v12.vercel.app/";
   const MSG_GROUP="Here's the golf scoring app we'll be using for the trip.\n\nLive scoring, leaderboard updates, side comps and final results are all handled automatically.\n\nCheck out how it works before the trip:\n\nhttps://app-test-drive-v12.vercel.app/";
-  function buildOrgMsg(){var m="Thought you'd like this -- it's an easy golf trip scoring app called Teein It Up.\n\nLive scoring, automatic leaderboard updates, side comps and final results all handled automatically.\n\nCould be perfect for your next golf trip.\n\nTry the demo Test Drive:\nhttps://app-test-drive-v12.vercel.app/";return m;}
+  function buildOrgMsg(){var m="Thought you'd like this - it's an easy to use golf trip scoring app called Teein It Up.\n\nLive scoring, automatic leaderboard updates, side comps and final results all handled automatically.\n\nCould be perfect for your next golf trip.\n\nTry the demo Test Drive:\nhttps://app-test-drive-v12.vercel.app/";return m;}
   function buildResults(){var top=(finalBoard&&finalBoard.length>0?finalBoard:winner?[winner]:[]).slice(0,3);var m="🏆 Teein' It Up Demo Results\n\n";top.forEach(function(p,i){m+=(i+1)+". "+p.name+" — "+p.total+" pts\n";});m+="\nLive leaderboard, side comps and final results all handled automatically.\n\nCould be perfect for your next golf trip.\n\nTry the demo:\nhttps://app-test-drive-v12.vercel.app/";return m;}
   const SHARE_OPTIONS=[
     {label:"Share with another organiser",msg:buildOrgMsg()},
