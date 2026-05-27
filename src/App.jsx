@@ -57,6 +57,8 @@ function InjectCSS() {
       .hole-tap:active{transform:scale(0.90)!important;}
       .trophy-bounce{animation:trophyBounce 1.6s ease-in-out infinite;}
       .gold-glow-text{animation:goldGlow 2.4s ease-in-out infinite;}
+      .winner-glow{animation:winnerPulse 2.4s ease-out 0.3s 1;}
+      @keyframes winnerPulse{0%{box-shadow:0 0 0 rgba(201,168,76,0);}40%{box-shadow:0 0 38px rgba(201,168,76,.55),0 0 80px rgba(201,168,76,.2);}100%{box-shadow:0 0 12px rgba(201,168,76,.15);}}
       .leader-row{animation:leaderPulse 3s ease-in-out infinite;}
     `;
     document.head.appendChild(el);
@@ -460,15 +462,31 @@ function WinnerOverlay({winner,sideW,onClose,finalBoard}) {
     {label:"Share with your players",msg:MSG_GROUP},
   ];
   var overlayRef=useRef(null);
+  const [soundOn,setSoundOn]=useState(true);
+  const hasPlayedCelebration=useRef(false);
   useEffect(()=>{ const t=setTimeout(()=>setVis(true),60); return ()=>clearTimeout(t); },[]);
   useEffect(()=>{ if(overlayRef.current) overlayRef.current.scrollTop=0; },[]);
+  useEffect(()=>{
+    if(vis&&soundOn&&!hasPlayedCelebration.current){
+      hasPlayedCelebration.current=true;
+      try{
+        var audio=new Audio("/sounds/crowd-cheer.mp3");
+        audio.volume=0.55;
+        audio.play().catch(function(){});
+      }catch(e){}
+    }
+  },[vis,soundOn]);
   return (
     <div ref={overlayRef} style={{position:"fixed",inset:0,zIndex:50,background:"rgba(4,14,8,0.96)",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"flex-start",animation:"fadeIn .3s",overflowY:"auto"}}>
       <Confetti/>
       <div style={{position:"absolute",top:0,left:"50%",transform:"translateX(-50%)",width:280,height:280,borderRadius:"50%",pointerEvents:"none",background:"radial-gradient(circle,rgba(201,168,76,.18) 0%,transparent 68%)"}}/>
       <div style={{position:"relative",zIndex:1,textAlign:"center",padding:"16px 24px 20px",width:"100%",maxWidth:390}}>
 
-        {/* Label */}
+        {/* Sound toggle */}
+        <div style={{position:"absolute",top:14,right:16,opacity:vis?1:0,transition:"opacity .5s .5s"}}>
+          <button onClick={(e)=>{e.stopPropagation();setSoundOn(function(v){return !v;});}} style={{background:"rgba(255,255,255,.07)",border:"1px solid rgba(201,168,76,.2)",borderRadius:8,padding:"5px 10px",cursor:"pointer",...T.body,fontSize:11,color:"rgba(245,230,184,.55)"}}>{soundOn?"🔊":"🔇"}</button>
+        </div>
+      {/* Label */}
         <div style={{...T.body,color:C.goldMid,fontSize:10,fontWeight:700,letterSpacing:3,textTransform:"uppercase",marginBottom:6,opacity:vis?1:0,transition:"opacity .5s .1s"}}>Round 1 Complete</div>
 
         {/* Trophy */}
@@ -484,7 +502,7 @@ function WinnerOverlay({winner,sideW,onClose,finalBoard}) {
         </div>
 
         {/* Score pill */}
-        <div style={{display:"inline-flex",alignItems:"center",gap:8,background:"linear-gradient(135deg,#b8892a 0%,#f0d060 45%,#c9952a 100%)",borderRadius:28,padding:"9px 22px",marginBottom:12,boxShadow:"0 6px 22px rgba(201,168,76,.5)",opacity:vis?1:0,transition:"opacity .5s .38s"}}>
+        <div className="winner-glow" style={{display:"inline-flex",alignItems:"center",gap:8,background:"linear-gradient(135deg,#b8892a 0%,#f0d060 45%,#c9952a 100%)",borderRadius:28,padding:"9px 22px",marginBottom:12,boxShadow:"0 6px 22px rgba(201,168,76,.5)",opacity:vis?1:0,transition:"opacity .5s .38s"}}>
           <span style={{...T.display,color:C.greenDeep,fontSize:26,fontWeight:900}}>{vis?<ScoreCounter target={winner.total}/>:0}</span>
           <span style={{...T.body,color:C.greenDeep,fontSize:12,fontWeight:700}}>Stableford pts</span>
         </div>
