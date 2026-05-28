@@ -1,5 +1,20 @@
 import { useState, useEffect, useRef } from "react";
 
+// ─── CELEBRATION AUDIO ────────────────────────────────────────────────────────
+var _celebAudio = null;
+function getAudio() {
+  if (!_celebAudio) {
+    _celebAudio = new Audio('/sounds/crowd-cheer.mp3');
+    _celebAudio.preload = 'auto';
+    console.log('Audio file loaded');
+  }
+  return _celebAudio;
+}
+function unlockAudio() {
+  var a = getAudio();
+  a.play().then(function(){a.pause();a.currentTime=0;}).catch(function(){});
+}
+
 // ─── ANALYTICS ──────────────────────────────────────────────────────────────
 // Replace G-XXXXXXXXXX with your real GA4 Measurement ID in index.html
 function trackEvent(name, params) {
@@ -305,7 +320,7 @@ function LeadModal({onClose}) {
 
   useEffect(function() {
     document.body.style.overflow = "hidden";
-    trackEvent("lead_form_opened");
+    trackEvent("early_access_opened");
     return function() { document.body.style.overflow = ""; };
   }, []);
 
@@ -346,10 +361,11 @@ function LeadModal({onClose}) {
           createdAt: new Date().toISOString()
         })
       });
-      trackEvent("lead_form_submitted", { role: role, tripsPerYear: tripsPerYear, groupSize: groupSize });
+      trackEvent("early_access_submitted", { role: role, tripsPerYear: tripsPerYear, groupSize: groupSize });
       setSuccess(true);
       setTimeout(function() { onClose(); }, 5000);
     } catch(err) {
+      trackEvent("early_access_failed");
       setSubmitErr("Something went wrong. Please try again.");
     } finally {
       setLoading(false);
@@ -464,18 +480,57 @@ function WinnerOverlay({winner,sideW,onClose,finalBoard}) {
   var overlayRef=useRef(null);
   const [soundOn,setSoundOn]=useState(true);
   const hasPlayedCelebration=useRef(false);
+  const audioRef=useRef(null);
+
+  // Pre-load audio on mount so it is ready instantly
+  useEffect(function(){
+    try{
+      var a=new Audio("/sounds/crowd-cheer.wav");
+      a.preload="auto";
+      a.volume=0.55;
+      a.addEventListener("canplaythrough",function(){console.log("Celebration audio file loaded");});
+      a.addEventListener("error",function(e){console.log("Celebration audio load error:",e);});
+      audioRef.current=a;
+    }catch(e){console.log("Audio init error:",e);}
+  },[]);
+
   useEffect(()=>{ const t=setTimeout(()=>setVis(true),60); return ()=>clearTimeout(t); },[]);
   useEffect(()=>{ if(overlayRef.current) overlayRef.current.scrollTop=0; },[]);
-  useEffect(()=>{
+  useEffect(()=>{ trackEvent("results_screen_viewed"); },[]);
+
+  // Play celebration when overlay becomes visible
+  useEffect(function(){
     if(vis&&soundOn&&!hasPlayedCelebration.current){
       hasPlayedCelebration.current=true;
-      try{
-        var audio=new Audio("/sounds/crowd-cheer.mp3");
-        audio.volume=0.55;
-        audio.play().catch(function(){});
-      }catch(e){}
+      console.log("Attempting celebration sound");
+      var audio=audioRef.current;
+      if(audio){
+        audio.currentTime=0;
+        var p=audio.play();
+        if(p&&typeof p.then==="function"){
+          p.then(function(){console.log("Celebration sound played");}).catch(function(err){
+            console.log("Celebration sound failed:",err);
+          });
+        }
+      } else {
+        // Fallback: create new instance
+        try{
+          var fb=new Audio("/sounds/crowd-cheer.wav");
+          fb.volume=0.55;
+          fb.play().then(function(){console.log("Celebration sound played (fallback)");}).catch(function(err){console.log("Celebration sound failed:",err);});
+        }catch(e){console.log("Celebration audio exception:",e);}
+      }
     }
   },[vis,soundOn]);
+
+  function playCelebrationManual(){
+    console.log("Manual celebration triggered");
+    try{
+      var a=new Audio("/sounds/crowd-cheer.wav");
+      a.volume=0.7;
+      a.play().then(function(){console.log("Manual play: success");}).catch(function(e){console.log("Manual play failed:",e);});
+    }catch(e){console.log("Manual play exception:",e);}
+  }
   return (
     <div ref={overlayRef} style={{position:"fixed",inset:0,zIndex:50,background:"rgba(4,14,8,0.96)",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"flex-start",animation:"fadeIn .3s",overflowY:"auto"}}>
       <Confetti/>
@@ -484,7 +539,11 @@ function WinnerOverlay({winner,sideW,onClose,finalBoard}) {
 
         {/* Sound toggle */}
         <div style={{position:"absolute",top:14,right:16,opacity:vis?1:0,transition:"opacity .5s .5s"}}>
-          <button onClick={(e)=>{e.stopPropagation();setSoundOn(function(v){return !v;});}} style={{background:"rgba(255,255,255,.07)",border:"1px solid rgba(201,168,76,.2)",borderRadius:8,padding:"5px 10px",cursor:"pointer",...T.body,fontSize:11,color:"rgba(245,230,184,.55)"}}>{soundOn?"🔊":"🔇"}</button>
+          <div style={{display:"flex",gap:6}}>
+            <button onClick={(e)=>{e.stopPropagation();try{var a=getAudio();a.currentTime=0;a.volume=0.6;a.play().catch(function(err){console.log("Test play failed:",err);});}catch(x){}}} style={{background:"rgba(255,255,255,.07)",border:"1px solid rgba(201,168,76,.2)",borderRadius:8,padding:"5px 9px",cursor:"pointer",...T.body,fontSize:11,color:"rgba(245,230,184,.5)"}}>&#9654;</button>
+            <button onClick={(e)=>{e.stopPropagation();setSoundOn(function(v){return !v;});}} style={{background:"rgba(255,255,255,.07)",border:"1px solid rgba(201,168,76,.2)",borderRadius:8,padding:"5px 9px",cursor:"pointer",...T.body,fontSize:11,color:"rgba(245,230,184,.55)"}}>{soundOn?"🔊":"🔇"}</button>
+            <button onClick={(e)=>{e.stopPropagation();playCelebrationManual();}} style={{background:"rgba(255,255,255,.07)",border:"1px solid rgba(201,168,76,.2)",borderRadius:8,padding:"5px 9px",cursor:"pointer",...T.body,fontSize:10,color:"rgba(245,230,184,.45)"}}>▶</button>
+          </div>
         </div>
       {/* Label */}
         <div style={{...T.body,color:C.goldMid,fontSize:10,fontWeight:700,letterSpacing:3,textTransform:"uppercase",marginBottom:6,opacity:vis?1:0,transition:"opacity .5s .1s"}}>Round 1 Complete</div>
@@ -526,7 +585,7 @@ function WinnerOverlay({winner,sideW,onClose,finalBoard}) {
           </div>
         )}
         {/* View Full Leaderboard - secondary ghost */}
-        <button onClick={(e)=>{e.stopPropagation();trackEvent("full_leaderboard_viewed");onClose();}} style={{width:"100%",background:"rgba(12,42,24,.85)",border:"1px solid rgba(201,168,76,.22)",borderTop:"none",borderRadius:0,borderBottomLeftRadius:14,borderBottomRightRadius:14,padding:"12px 0",...T.body,fontSize:13.5,fontWeight:700,color:"rgba(245,230,184,.82)",cursor:"pointer",letterSpacing:.2,marginBottom:24,opacity:vis?1:0,transition:"opacity .5s .62s"}}>View Full Leaderboard →</button>
+        <button onClick={(e)=>{e.stopPropagation();trackEvent("leaderboard_viewed");onClose();}} style={{width:"100%",background:"rgba(12,42,24,.85)",border:"1px solid rgba(201,168,76,.22)",borderTop:"none",borderRadius:0,borderBottomLeftRadius:14,borderBottomRightRadius:14,padding:"12px 0",...T.body,fontSize:13.5,fontWeight:700,color:"rgba(245,230,184,.82)",cursor:"pointer",letterSpacing:.2,marginBottom:24,opacity:vis?1:0,transition:"opacity .5s .62s"}}>View Full Leaderboard →</button>
         {/* Side comp card */}
         <div style={{background:"rgba(8,28,16,.92)",border:"1px solid rgba(201,168,76,.25)",borderRadius:12,padding:"14px 16px",marginBottom:16,textAlign:"left",opacity:vis?1:0,transform:vis?"translateY(0)":"translateY(10px)",transition:"opacity .5s .5s,transform .5s .5s"}}>
           <div style={{...T.body,fontSize:11.5,fontWeight:800,color:C.goldMid,letterSpacing:1.1,textTransform:"uppercase",marginBottom:10}}>Side Comp Winners</div>
@@ -557,7 +616,7 @@ function WinnerOverlay({winner,sideW,onClose,finalBoard}) {
               {label:"Share with your players",ic:"🤼",msg:MSG_GROUP},
               {label:"Share Demo",ic:"📤",msg:MSG_DEMO}
             ].map(function(opt,i){return(
-              <button key={i} className="btn-press" onClick={(e)=>{e.stopPropagation();var ev=i===0?"share_organiser_clicked":i===1?"share_players_clicked":"share_demo_clicked";trackEvent(ev);shareText(opt.msg);}} style={{width:"100%",padding:"14px 18px",background:"rgba(10,38,20,.85)",border:"1px solid rgba(201,168,76,.3)",borderRadius:12,display:"flex",alignItems:"center",gap:12,cursor:"pointer",boxShadow:"0 2px 12px rgba(0,0,0,.35)"}}>
+              <button key={i} className="btn-press" onClick={(e)=>{e.stopPropagation();var ev=i===0?"organiser":i===1?"players":"demo";trackEvent("share_clicked",{share_type:ev});shareText(opt.msg);}} style={{width:"100%",padding:"14px 18px",background:"rgba(10,38,20,.85)",border:"1px solid rgba(201,168,76,.3)",borderRadius:12,display:"flex",alignItems:"center",gap:12,cursor:"pointer",boxShadow:"0 2px 12px rgba(0,0,0,.35)"}}>
                 <span style={{fontSize:18,flexShrink:0}}>{opt.ic}</span>
                 <span style={{...T.body,flex:1,fontSize:13.5,fontWeight:700,color:"rgba(245,230,184,.88)",textAlign:"left"}}>{opt.label}</span>
                 <span style={{...T.body,fontSize:13,color:"rgba(201,168,76,.6)",fontWeight:600}}>→</span>
@@ -1415,7 +1474,11 @@ function ScoreEntryScreen({onNext,cfg,dailyHcps,scRes,onScRes}) {
           )}
 
           <div style={{padding:"0 16px 14px"}}>
-            <button onClick={function(){trackEvent("score_submitted",{hole:holeIdx+10});confirm();}} disabled={selected===null} style={{width:"100%",padding:"14px",background:flash?"#16a34a":(selected!==null&&selected>0)?`linear-gradient(135deg,${C.greenBright},#16a34a)`:"rgba(255,255,255,.08)",color:C.white,border:"none",borderRadius:10,fontSize:15,fontWeight:700,...T.body,cursor:(selected!==null&&selected>0)?"pointer":"not-allowed",letterSpacing:.5,transition:"background .2s",boxShadow:selected!==null?"0 4px 16px rgba(22,163,74,.4)":"none"}}>{flash?"✓ Saved!":"✓ Confirm Score"}</button>
+            <button onClick={function(){
+          unlockAudio();
+          trackEvent("score_confirmed",{hole:holeIdx+10});
+          confirm();
+        }} disabled={selected===null} style={{width:"100%",padding:"14px",background:flash?"#16a34a":(selected!==null&&selected>0)?`linear-gradient(135deg,${C.greenBright},#16a34a)`:"rgba(255,255,255,.08)",color:C.white,border:"none",borderRadius:10,fontSize:15,fontWeight:700,...T.body,cursor:(selected!==null&&selected>0)?"pointer":"not-allowed",letterSpacing:.5,transition:"background .2s",boxShadow:selected!==null?"0 4px 16px rgba(22,163,74,.4)":"none"}}>{flash?"✓ Saved!":"✓ Confirm Score"}</button>
           </div>
         </div>
 
@@ -1829,9 +1892,9 @@ export default function App() {
       <div ref={scrollRef} style={{width:"100%",maxWidth:430,minHeight:"100vh",background:C.cream,display:"flex",flexDirection:"column",boxShadow:"0 0 60px rgba(0,0,0,.6)"}} key={demoKey}>
         {screen===1&&<WelcomeScreen onNext={()=>goTo(15)}/>}
         {/* screen 15: role select — organiser goes to setup (2), player jumps to back9 context (36) */}
-        {screen===15&&<TestDriveScreen onOrganiser={()=>goTo(2)} onPlayer={()=>goTo(36)}/>}
+        {screen===15&&<TestDriveScreen onOrganiser={()=>{trackEvent("organiser_path_started");goTo(2);}} onPlayer={()=>{trackEvent("player_path_started");goTo(36);}}/>}
         {screen===2&&<CreateTripScreen cfg={cfg} onCfg={setCfg} onNext={()=>goTo(3)}/>}
-        {screen===3&&<TripOverviewScreen cfg={cfg} dailyHcps={dailyHcps} onDailyHcps={setDailyHcps} onNext={()=>goTo(35)}/>}
+        {screen===3&&<TripOverviewScreen cfg={cfg} dailyHcps={dailyHcps} onDailyHcps={setDailyHcps} onNext={()=>{trackEvent("setup_completed");goTo(35);}}/>}
         {/* screen 35: player moment (organiser path) — feeds into scoring */}
         {screen===35&&<PlayerMomentScreen onNext={()=>goTo(4)}/>}
         {screen===36&&<PlayerMomentScreen onNext={()=>goTo(4)}/>}
